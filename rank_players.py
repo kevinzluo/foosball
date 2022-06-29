@@ -3,6 +3,8 @@ from numpy import linalg
 import requests
 import csv
 
+START_ELO = 1000
+
 def pull_table():
     key = "1ijei0ZhIdPiY_TazfB2JZAAoNi3CWowgPquQuLv3oSU"
     sheet_name = "games"
@@ -74,10 +76,10 @@ def rank_elo(players, games):
     def calc_true_score(score_1, score_2):
         return score_1 / (score_1 + score_2)
 
-    def calc_adjusted_rating(true_score, expected_score, old_rating):
-        return old_rating + 100 * (true_score - expected_score)
+    def calc_adjusted_rating(true_score, expected_score, old_rating, max_score):
+        return old_rating + 10 * max_score * (true_score - expected_score)
 
-    elo_scores = {player: 1000 for player in players}
+    elo_scores = {player: START_ELO for player in players}
 
     for row, game in enumerate(games):
 
@@ -104,7 +106,8 @@ def rank_elo(players, games):
                     (team_id - 1) + (3 - team_id * 2) * expected_score_1,
                     # ^ 0 + score if team 1
                     #   1 - score if team 2
-                    elo_scores[teams[team_id - 1][player_id - 1]]
+                    elo_scores[teams[team_id - 1][player_id - 1]],
+                    max(int(game["team_1_score"]), int(game["team_2_score"]))
                 )
 
     return elo_scores
