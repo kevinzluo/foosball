@@ -22,7 +22,7 @@ def plot_elo_history(player, games, elo_history):
     ax1.set_title('{} elo history'.format(player))
     ax1.set_xlabel('Game #ID')
 
-    ax1.plot(updated_games, player_elo)
+    ax1.plot(updated_games, player_elo, '-o')
     fname = ELO_GRAPH_DIR / "{}_elo_history.png".format(player)
     plt.savefig(fname)
 
