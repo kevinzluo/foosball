@@ -46,20 +46,40 @@ def anim_elo_history(players, games, elo_history):
                 first_games[player] = i
                 break
 
-    # fixed at 60FPS
-    INTERVAL = 1 / 60 * 1000
+    # fixed at 30FPS
+    INTERVAL = 1 / 60 * 1000 # not actually matters
+    FPS = 35
     TOTAL_RUNTIME = 5 # in seconds
-    FRAMES_PER_GAME = TOTAL_RUNTIME * 60 // (len(games) + 1)
+    FRAMES_PER_GAME = TOTAL_RUNTIME * FPS // (len(games) + 1)
+    plt.close('all')
+    fig, ax = plt.subplots(1, 1, figsize = (6, 3))
 
-    fig, ax = plt.subplots(1, 1, figsize = (10, 5))
+    EASE_IN_FUNC = lambda t: t # ** 2
+    EASE_OUT_FUNC = lambda t: 1 - t # ** 2
 
     # animation for frame i
     def animate(i):
+        BASE_LINEWIDTH = 1.5
+        MAX_ADDL_LINEWIDTH = 1.5
+        BASE_MARKERSIZE = 18
+        MAX_ADDL_MARKERSIZE = 36
         # clear plot
         ax.cla()
 
         # time starts at -1 and ends at len(games)
         curr_time_as_game = i / FRAMES_PER_GAME - 1
+
+        # collect current and next players for fadeout/in
+        curr_game = int(np.floor(curr_time_as_game))
+        curr_players = []
+        next_players = []
+        if curr_game >= 0 and curr_game < len(games):
+            curr_players = [p for t in get_game_teams(games[curr_game]) for p in t]
+        next_game = int(np.floor(curr_time_as_game + 1))
+        if next_game < len(games):
+            next_players = [p for t in get_game_teams(games[next_game]) for p in t]
+        delta = curr_time_as_game - curr_game # fraction of time passed
+
         for player in players:
             # blank plots for people who haven't played their first game
             if curr_time_as_game < first_games[player] - 1:
@@ -82,9 +102,20 @@ def anim_elo_history(players, games, elo_history):
             xsup = xsup[xsup <= curr_time_as_game]
             spline_path = spl(xnew)
 
-            ax.plot(1 + xnew, spline_path)
+            # for those in both curr and next, take max adjustment
+            width_adjustment_queue = []
+            if player in curr_players:
+                width_adjustment_queue.append(EASE_OUT_FUNC(delta))
+            if player in next_players:
+                width_adjustment_queue.append(EASE_IN_FUNC(delta))
+            width_adjustment = 0 if not len(width_adjustment_queue) else max(width_adjustment_queue)
+
+            marker_sizes = [BASE_MARKERSIZE + MAX_ADDL_MARKERSIZE if game >= 0 and player in games[game].values() 
+                                else BASE_MARKERSIZE for game in xsup]
+            ax.plot(1 + xnew, spline_path, linewidth = BASE_LINEWIDTH, alpha = 0.8) # + width_adjustment * MAX_ADDL_LINEWIDTH determined looks ugly
             # append on point in current time to have line end with a dot
-            ax.scatter(list(1 + xsup) + [xnew[-1] + 1], trunc_traj + [spline_path[-1]], label = player)
+            ax.scatter(list(1 + xsup) + [xnew[-1] + 1], trunc_traj + [spline_path[-1]], label = player, 
+                        s = marker_sizes + [BASE_MARKERSIZE + width_adjustment * MAX_ADDL_MARKERSIZE], alpha = 0.8)
         # fix x-axis 
         # possible change: sliding x/y axis
         ax.set_xlim([0, len(games)])
@@ -95,5 +126,5 @@ def anim_elo_history(players, games, elo_history):
         ax.legend(loc = "center left", bbox_to_anchor = (1, 0.5))
         fig.tight_layout()
 
-    anim = animation.FuncAnimation(fig, animate, frames = range(1, FRAMES_PER_GAME * (len(games) + 1) + 1), interval = INTERVAL / 10, blit = False)
-    anim.save("elo_graphs/elo.gif", animation.ImageMagickWriter(fps = 60))
+    anim = animation.FuncAnimation(fig, animate, frames = range(1, FRAMES_PER_GAME * len(games) + FPS + 1), interval = INTERVAL / 10, blit = False)
+    anim.save("elo_graphs/elo.gif", animation.ImageMagickWriter(fps = FPS))
