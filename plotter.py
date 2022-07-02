@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 import pandas as pd
 import numpy as np
+import copy
 from rank_players import get_game_teams
 from util import ELO_GRAPH_DIR
 from scipy.interpolate import make_interp_spline
@@ -33,9 +34,17 @@ def anim_elo_history(players, games, elo_history):
     # get elo as df with columns player names
     trajs = pd.DataFrame(elo_history).T
     # append start rating of 1000 for players of the first game
-    # (hence game -1 is just everyone at 1000)
+    # (hence game 0 is just everyone at 1000)
     trajs.loc[-1] = 1000
+    trajs.index = trajs.index + 1
     trajs = trajs.sort_index()
+
+    print(trajs)
+    
+    # this fixes indexing issues
+    # the index of a game is the true number of that game
+    games = copy.deepcopy(games)
+    games.insert(0, {})
 
     # get first game played
     first_games = {}
@@ -43,12 +52,12 @@ def anim_elo_history(players, games, elo_history):
         for i, game in enumerate(games):
             game_teams = get_game_teams(game)
             if (player in game_teams[0]) | (player in game_teams[1]):
-                first_games[player] = i
+                first_games[player] = i 
                 break
 
     # fixed at 30FPS
     INTERVAL = 1 / 60 * 1000 # not actually matters
-    FPS = 35
+    FPS = 15
     TOTAL_RUNTIME = 5 # in seconds
     FRAMES_PER_GAME = TOTAL_RUNTIME * FPS // (len(games) + 1)
     plt.close('all')
@@ -57,23 +66,25 @@ def anim_elo_history(players, games, elo_history):
     EASE_IN_FUNC = lambda t: t # ** 2
     EASE_OUT_FUNC = lambda t: 1 - t # ** 2
 
+    BASE_LINEWIDTH = 1.5
+    MAX_ADDL_LINEWIDTH = 1.5
+    BASE_MARKERSIZE = 18
+    MAX_ADDL_MARKERSIZE = 36
+
+
     # animation for frame i
     def animate(i):
-        BASE_LINEWIDTH = 1.5
-        MAX_ADDL_LINEWIDTH = 1.5
-        BASE_MARKERSIZE = 18
-        MAX_ADDL_MARKERSIZE = 36
         # clear plot
         ax.cla()
 
-        # time starts at -1 and ends at len(games)
-        curr_time_as_game = i / FRAMES_PER_GAME - 1
+        # time starts at 0 and ends at len(games) (+1 more second of freeze at end)
+        curr_time_as_game = 1 + i / FRAMES_PER_GAME
 
         # collect current and next players for fadeout/in
         curr_game = int(np.floor(curr_time_as_game))
         curr_players = []
         next_players = []
-        if curr_game >= 0 and curr_game < len(games):
+        if curr_game >= 1 and curr_game < len(games):
             curr_players = [p for t in get_game_teams(games[curr_game]) for p in t]
         next_game = int(np.floor(curr_time_as_game + 1))
         if next_game < len(games):
@@ -82,9 +93,9 @@ def anim_elo_history(players, games, elo_history):
 
         for player in players:
             # blank plots for people who haven't played their first game
-            if curr_time_as_game < first_games[player] - 1:
+            if curr_time_as_game < first_games[player]:
                 ax.plot([], [])
-                ax.scatter([], [], label = player)
+                ax.scatter([], [], label = player, alpha = 0.8)
                 continue
         
             # support for x axis, take game before to start at 1000
@@ -110,21 +121,24 @@ def anim_elo_history(players, games, elo_history):
                 width_adjustment_queue.append(EASE_IN_FUNC(delta))
             width_adjustment = 0 if not len(width_adjustment_queue) else max(width_adjustment_queue)
 
-            marker_sizes = [BASE_MARKERSIZE + MAX_ADDL_MARKERSIZE if game >= 0 and player in games[game].values() 
+            marker_sizes = [BASE_MARKERSIZE + MAX_ADDL_MARKERSIZE if game >= 1 and player in games[game].values() 
                                 else BASE_MARKERSIZE for game in xsup]
-            ax.plot(1 + xnew, spline_path, linewidth = BASE_LINEWIDTH, alpha = 0.8) # + width_adjustment * MAX_ADDL_LINEWIDTH determined looks ugly
+            ax.plot(xnew, spline_path, linewidth = BASE_LINEWIDTH, alpha = 0.8) # + width_adjustment * MAX_ADDL_LINEWIDTH determined looks ugly
             # append on point in current time to have line end with a dot
-            ax.scatter(list(1 + xsup) + [xnew[-1] + 1], trunc_traj + [spline_path[-1]], label = player, 
+            ax.scatter(list(xsup) + [xnew[-1]], trunc_traj + [spline_path[-1]], label = player, 
                         s = marker_sizes + [BASE_MARKERSIZE + width_adjustment * MAX_ADDL_MARKERSIZE], alpha = 0.8)
         # fix x-axis 
         # possible change: sliding x/y axis
-        ax.set_xlim([0, len(games)])
+        ax.set_xlim([0, len(games) - 1])
         Y_MIN = trajs.min().min()
         Y_MAX = trajs.max().max()
         Y_RANGE = Y_MAX - Y_MIN
         ax.set_ylim([Y_MIN - Y_RANGE / 10, Y_MAX + Y_RANGE / 10])
         ax.legend(loc = "center left", bbox_to_anchor = (1, 0.5))
         fig.tight_layout()
+
+    # animate(180)
+    # plt.show()
 
     anim = animation.FuncAnimation(fig, animate, frames = range(1, FRAMES_PER_GAME * len(games) + FPS + 1), interval = INTERVAL / 10, blit = False)
     anim.save("elo_graphs/elo.gif", animation.ImageMagickWriter(fps = FPS))
