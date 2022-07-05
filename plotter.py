@@ -52,7 +52,7 @@ def anim_elo_history(players, games, elo_history):
     TOTAL_RUNTIME = 5 # in seconds
     FRAMES_PER_GAME = TOTAL_RUNTIME * FPS // (len(games) + 1)
     plt.close('all')
-    fig, ax = plt.subplots(1, 1, figsize = (6, 3))
+    fig, ax = plt.subplots(1, 1, figsize = (6, 4))
 
     EASE_IN_FUNC = lambda t: t # ** 2
     EASE_OUT_FUNC = lambda t: 1 - t # ** 2
@@ -126,5 +126,7 @@ def anim_elo_history(players, games, elo_history):
         ax.legend(loc = "center left", bbox_to_anchor = (1, 0.5))
         fig.tight_layout()
 
+    # animate(130)
+    # plt.show()
     anim = animation.FuncAnimation(fig, animate, frames = range(1, FRAMES_PER_GAME * len(games) + FPS + 1), interval = INTERVAL / 10, blit = False)
     anim.save("elo_graphs/elo.gif", animation.ImageMagickWriter(fps = FPS))
