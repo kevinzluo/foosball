@@ -1,3 +1,4 @@
+from os import minor
 import matplotlib.pyplot as plt
 from matplotlib import animation, cm
 import pandas as pd
@@ -65,8 +66,8 @@ def anim_elo_history(players, games, elo_history):
     EASE_IN_FUNC = lambda t: t ** 2
     EASE_OUT_FUNC = lambda t: (1 - t) ** 2
 
-    BASE_MARKERSIZE = 18
-    MAX_ADDL_MARKERSIZE = 36
+    BASE_MARKERSIZE = 0
+    MAX_ADDL_MARKERSIZE = 54
 
     ## TODO: THIS BREAKS ONCE 20 PLAYERS
     cycle = cm.tab20(np.linspace(0, 1, len(players), endpoint = False)) 
@@ -74,10 +75,11 @@ def anim_elo_history(players, games, elo_history):
     # precompute splines, markers, and thicknesses
     paths = {}
     for player in players:
+        SEG_RESOLUTION = min(3 * FRAMES_PER_GAME, 40)
         # support for x axis, take game before to start at 1000
         xsup = np.arange(first_games[player] - 1, num_games + 1)
         # finer grain for spline, with one increment per frame
-        xnew = np.linspace(min(xsup), max(xsup), FRAMES_PER_GAME * (len(xsup) - 1) + 1)
+        xnew = np.linspace(min(xsup), max(xsup), SEG_RESOLUTION * (len(xsup) - 1) + 1)
 
         # get elos for the player over their support
         trunc_traj = trajs[player][xsup]
@@ -91,10 +93,10 @@ def anim_elo_history(players, games, elo_history):
         
         # for endpoint marker thickness
         # we ignore the very first point of xnew, since it always an unplayed game
-        inst_thickness = np.zeros((2, FRAMES_PER_GAME * (len(xsup) - 1)))
+        inst_thickness = np.zeros((2, SEG_RESOLUTION * (len(xsup) - 1)))
 
         # sample the right endpoint of every interval of [0, 1]
-        delta, delta_range = np.linspace(0, 1, FRAMES_PER_GAME, endpoint=False, retstep=True)
+        delta, delta_range = np.linspace(0, 1, SEG_RESOLUTION, endpoint=False, retstep=True)
         delta_range += delta
 
         up_section = EASE_IN_FUNC(delta_range)
@@ -103,14 +105,14 @@ def anim_elo_history(players, games, elo_history):
         for game_num, in_game in zip(xsup, in_game_indicator):
             if game_num == 0:
                 continue
-            entry_index = FRAMES_PER_GAME * (game_num - (first_games[player] - 1))
+            entry_index = SEG_RESOLUTION * (game_num - (first_games[player] - 1))
             if in_game:
                 # queue up upscaling for this 
-                inst_thickness[0, entry_index - FRAMES_PER_GAME:entry_index] = up_section
+                inst_thickness[0, entry_index - SEG_RESOLUTION:entry_index] = up_section
 
                 # queue up downscaling for the next section
                 if game_num < num_games:
-                    inst_thickness[1, entry_index:entry_index + FRAMES_PER_GAME] = down_section
+                    inst_thickness[1, entry_index:entry_index + SEG_RESOLUTION] = down_section
 
         inst_thickness = inst_thickness.max(axis = 0)
         # removed to use this adjustment for markers
@@ -172,5 +174,5 @@ def anim_elo_history(players, games, elo_history):
     # animate(15)
     # plt.show()
 
-    anim = animation.FuncAnimation(fig, animate, frames = range(1, FRAMES_PER_GAME * num_games + FPS + 1), interval = INTERVAL / 10, blit = False)
+    anim = animation.FuncAnimation(fig, animate, frames = range(1, FRAMES_PER_GAME * num_games + 3 * FPS + 1), interval = INTERVAL / 10, blit = False)
     anim.save("elo_graphs/elo.gif", animation.FFMpegWriter(fps = FPS))
