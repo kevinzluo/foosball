@@ -61,7 +61,7 @@ def anim_elo_history(players, games, elo_history):
     TOTAL_RUNTIME = 5 # in seconds
     FRAMES_PER_GAME = TOTAL_RUNTIME * FPS // (num_games + 1)
     plt.close('all')
-    fig, ax = plt.subplots(1, 1, figsize = (6, 4))
+    fig, ax = plt.subplots(1, 1, figsize = (8, 5))
 
     EASE_IN_FUNC = lambda t: t ** 2
     EASE_OUT_FUNC = lambda t: (1 - t) ** 2
